@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from torchvision import models
 
+
 class Critic(nn.Module):
     def __init__(self, action_space):
         super(Critic, self).__init__()

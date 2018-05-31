@@ -2,6 +2,7 @@
 import numpy as np
 import torch as K
 
+
 def relative_to_point(boxes, dtype='tensor'):
     """ Convert (xmin, ymin, w, h) to (xmin, ymin, xmax, ymax)
     representation for comparison to point form ground truth data.

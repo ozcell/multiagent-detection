@@ -1,15 +1,11 @@
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-from bbox_utils import jaccard, relative_to_point
-
 import torch as K
-from torchvision.datasets import CocoDetection
+from PIL import Image, ImageDraw, ImageFont
+
 import torchvision.transforms as T
+from bbox_utils import jaccard, relative_to_point
+from torchvision.datasets import CocoDetection
 
-
-
-
-fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
 
 def target_transform(target):
     return np.asarray(target[0].get('bbox'))
@@ -18,11 +14,10 @@ normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
                         std=[0.229, 0.224, 0.225])
 
 transform = T.Compose([normalize])
-
 target_transform = lambda target: np.asarray(target[0].get('bbox'))
 
 randint = np.random.randint
-
+fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
 
 class marlod(object):
     def __init__(self, step_size=4, glimpse_size=(128,128), out_size=(224,224)):
@@ -182,4 +177,3 @@ class marlod(object):
         self.IoU = IoU
         
         return reward
-            
