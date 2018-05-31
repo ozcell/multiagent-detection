@@ -1,4 +1,5 @@
 .gitignore
+__pycache__
 __pycache__/marlod.cpython-36.pyc
 __pycache__/environments.cpython-36.pyc
 __pycache__/agents.cpython-36.pyc
