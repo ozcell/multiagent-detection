@@ -11,7 +11,6 @@ import torchvision.transforms as T
 
 fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
 
-
 def target_transform(target):
     return np.asarray(target[0].get('bbox'))
 
@@ -23,6 +22,7 @@ transform = T.Compose([normalize])
 target_transform = lambda target: np.asarray(target[0].get('bbox'))
 
 randint = np.random.randint
+
 
 class marlod(object):
     def __init__(self, step_size=4, glimpse_size=(128,128), out_size=(224,224)):

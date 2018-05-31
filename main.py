@@ -1,6 +1,6 @@
 import numpy as np
 import imageio
-from marlod import marlod
+from environments import marlod
 
 env = marlod()
 obs = env.reset()
@@ -16,5 +16,3 @@ for i in range(20):
     render_imgs.append(np.array(img)) 
 
 imageio.mimsave('render0.gif', render_imgs)  
-
-
