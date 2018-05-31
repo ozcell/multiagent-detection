@@ -15,4 +15,6 @@ for i in range(20):
     img = env.render()
     render_imgs.append(np.array(img)) 
 
-imageio.mimsave('render0.gif', render_imgs)  
+imageio.mimsave('render0.gif', render_imgs) 
+
+print('fuck') 
