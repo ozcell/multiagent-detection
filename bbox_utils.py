@@ -18,7 +18,6 @@ def relative_to_point(boxes, dtype='tensor'):
         return np.concatenate((boxes[:, :2],                    # xmin, ymin
                                boxes[:, :2] + boxes[:, 2:]), 1) # xmax, ymax 
 
-
 def point_to_relative(boxes):
     """ Convert (xmin, ymin, xmax, ymax) to (xmin, ymin, w, h)
     representation for comparison to point form ground truth data.
@@ -29,7 +28,6 @@ def point_to_relative(boxes):
     """
     return K.cat((boxes[:, :2],                    # xmin, ymin
                   boxes[:, 2:] - boxes[:, :2]), 1) # xmax, ymax
-
 
 def intersect(box_a, box_b):
     # Expects (xmin, ymin, xmax, ymax) formed bboxes
@@ -55,7 +53,6 @@ def intersect(box_a, box_b):
     inter = K.clamp((max_xy - min_xy), min=0)
     
     return inter[:, :, 0] * inter[:, :, 1]
-
 
 def jaccard(box_a, box_b):
     # Expects (xmin, ymin, xmax, ymax) formed bboxes

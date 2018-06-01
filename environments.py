@@ -97,13 +97,14 @@ class marlod(object):
             if np.argmax(action) == 4: locs[i][1] = locs[i][1] - self.step_size
         
         obs = self.get_glimpses(locs)
-        rew = self.get_reward(locs)
+        rew, done = self.get_reward(locs)
         
         self.locs = locs
         self.obs = obs
         self.rew = rew
+        self.done = done
         
-        return obs, rew
+        return obs, rew, done
         
     def render(self, with_glimpses=True):
 
@@ -162,18 +163,22 @@ class marlod(object):
     
     def get_reward(self, locs):
         
-        reward = 0
-        
         bbox_t = K.Tensor(relative_to_point(self.target.reshape(1,4), 'numpy'))
         bbox_p = K.Tensor(np.sort(np.asarray(locs),axis=0).reshape(1,-1))
         
         IoU = jaccard(bbox_t, bbox_p)
         
+        reward = 0
         if self.IoU < IoU:
             reward += 1
         else:
             reward -= 1
-            
+        
+        if IoU < 0.5:
+            done = 0
+        else:
+            done = 1
+        
         self.IoU = IoU
         
-        return reward
+        return reward, done
