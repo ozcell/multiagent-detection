@@ -8,7 +8,7 @@ class Critic(nn.Module):
     def __init__(self, action_space):
         super(Critic, self).__init__()
         
-        input_size = 25088*4 + action_space*2
+        input_size = 4096*4 + action_space*2
         hidden_size = 1024
         output_size = 1
         
@@ -37,7 +37,7 @@ class Actor(nn.Module):
     def __init__(self, action_space, discrete=True):
         super(Actor, self).__init__()
         
-        input_size = 25088*3
+        input_size = 4096*3
         hidden_size = 1024
         output_size = action_space
 
@@ -68,9 +68,11 @@ class Features(nn.Module):
         super(Features, self).__init__()
 
         self.VGG16 = models.vgg16(pretrained=True).features
+        self.FC = models.vgg16(pretrained=True).classifier[0:2]
 
     def forward(self, x):
 
         x = self.VGG16(x).view(-1, 25088)
+        x = self.FC(x)
 
         return x

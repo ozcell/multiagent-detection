@@ -1,20 +1,23 @@
 import numpy as np
+import skimage.io as io
+
 import torch as K
-from PIL import Image, ImageDraw, ImageFont
-
 import torchvision.transforms as T
-from bbox_utils import jaccard, relative_to_point
+
+from PIL import Image, ImageDraw, ImageFont
 from torchvision.datasets import CocoDetection
+from bbox_utils import jaccard, relative_to_point
 
 
-def target_transform(target):
-    return np.asarray(target[0].get('bbox'))
-
-normalize = T.Normalize(mean=[0.485, 0.456, 0.406],
+norm = T.Normalize(mean=[0.485, 0.456, 0.406],
                         std=[0.229, 0.224, 0.225])
 
-transform = T.Compose([normalize])
-target_transform = lambda target: np.asarray(target[0].get('bbox'))
+rev_norm = T.Compose([T.Normalize(mean=[0, 0, 0], std=[1/0.229, 1/0.224, 1/0.225]),
+                      T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1, 1, 1])])                        
+
+trans = T.Compose([T.ToTensor(), norm])
+rev_trans = T.Compose([rev_norm, T.ToPILImage()])
+target_trans = lambda target: np.asarray(target[0].get('bbox'))
 
 randint = np.random.randint
 fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
@@ -27,26 +30,41 @@ class marlod(object):
         self.glimpse_size = glimpse_size    #(x, y)
         self.out_size = out_size            #(x, y)
         
-        data = CocoDetection(root = '/home/ok18/Datasets/COCO/train2017',
+        data = CocoDetection(root = '/home/ok18/Datasets/COCO/train2017/',
                              annFile = '/home/ok18/Datasets/COCO/annotations/instances_train2017.json',
                              #transform=transform
-                             target_transform=target_transform
+                             target_transform=target_trans
                              )
+        
+        self.img, self.target = None, None
         self.locs = [[0,0], [0,0]]
         self.IoU = 0.
         self.rew = 0
+
+        catIds = data.coco.getCatIds(catNms=['cat'])
+        imgIds = data.coco.getImgIds(catIds=catIds )
+        data.ids = imgIds
         
         self.batch_iterator = iter(data)
         self.data = data
 
-    def reset(self):
+    def reset(self, new_image=True):
         
-        self.img, self.target = next(self.batch_iterator)
+        if self.img is None or new_image:
+            self.img, self.target = next(self.batch_iterator)
 
-        h, w = T.ToTensor()(self.img).shape[1], T.ToTensor()(self.img).shape[2]
+            #Id = self.imgIds[randint(0, len(self.imgIds))]
+            #path = self.data.root + self.data.coco.loadImgs(Id)[0]['file_name']
+            #self.img = T.ToPILImage()(io.imread(path))
+            #self.target = np.asarray(self.data.coco.loadAnns(Id)[0]['bbox'])
 
-        x1, y1 = randint(0, w), randint(0, h)
-        x2, y2 = randint(0, w), randint(0, h)
+        w, h = self.img.size
+
+        #x1, y1 = randint(w/4, 3*w/4), randint(h/4, 3*h/4)
+        #x2, y2 = randint(w/4, 3*w/4), randint(h/4, 3*h/4)
+
+        x1, y1 = w/4, h/4
+        x2, y2 = 3*w/4, 3*h/4
         
         locs = [[x1, y1], [x2, y2]]
         obs = self.get_glimpses(locs)
@@ -83,14 +101,19 @@ class marlod(object):
         
         whole = T.Resize(self.out_size)(self.img)
 
-        return T.ToTensor()(glimpse_1), T.ToTensor()(glimpse_2), T.ToTensor()(region), T.ToTensor()(whole)   
+        return trans(glimpse_1), trans(glimpse_2), trans(region), trans(whole)   
     
     def step(self, actions):
         
         locs = self.locs
         
+        #[no action, right, left, down, up]
         for i, action in enumerate(actions):
-            if np.argmax(action) == 0: locs[i] = locs[i]
+            if np.argmax(action) == 0: locs[i] = locs[i]            
+            #if np.argmax(action) == 1: locs[i][0] = min(locs[i][0] + self.step_size, self.img.size[0])
+            #if np.argmax(action) == 2: locs[i][0] = max(locs[i][0] - self.step_size, 0)
+            #if np.argmax(action) == 3: locs[i][1] = min(locs[i][1] + self.step_size, self.img.size[1])
+            #if np.argmax(action) == 4: locs[i][1] = max(locs[i][1] - self.step_size, 0)
             if np.argmax(action) == 1: locs[i][0] = locs[i][0] + self.step_size
             if np.argmax(action) == 2: locs[i][0] = locs[i][0] - self.step_size
             if np.argmax(action) == 3: locs[i][1] = locs[i][1] + self.step_size
@@ -109,6 +132,7 @@ class marlod(object):
     def render(self, with_glimpses=True):
 
         img = self.img.copy()
+        obs = (self.obs[0].clone(), self.obs[1].clone(), self.obs[2].clone(), self.obs[3].clone())
         draw = ImageDraw.Draw(img)
 
         bbox_t = list(relative_to_point(self.target.reshape(1,-1), 'numpy').reshape(4,))
@@ -137,10 +161,10 @@ class marlod(object):
         if with_glimpses:
             img_glimpses = Image.new('RGB', (self.out_size[0]*2, self.out_size[1]*2))
             
-            img_glimpses.paste(T.ToPILImage()(self.obs[3]), (0, 0))
-            img_glimpses.paste(T.ToPILImage()(self.obs[2]), (self.out_size[0], 0))
-            img_glimpses.paste(T.ToPILImage()(self.obs[0]), (0, self.out_size[1]))
-            img_glimpses.paste(T.ToPILImage()(self.obs[1]), (self.out_size[0], self.out_size[1]))
+            img_glimpses.paste(rev_trans(obs[0]), (0, 0))
+            img_glimpses.paste(rev_trans(obs[1]), (self.out_size[0], 0))
+            img_glimpses.paste(rev_trans(obs[2]), (0, self.out_size[1]))
+            img_glimpses.paste(rev_trans(obs[3]), (self.out_size[0], self.out_size[1]))
             
             w, h = img.size
             img_glimpses = T.Resize((h, h))(img_glimpses)
@@ -150,10 +174,10 @@ class marlod(object):
             img_all.paste(img_glimpses, (w, 0))
             
             draw = ImageDraw.Draw(img_all)
-            draw.text((w,         0), "Whole", font=fnt, fill='yellow')
-            draw.text((w+h//2,    0), "Region", font=fnt, fill='red')
-            draw.text((w,      h//2), "Agent 1", font=fnt, fill='magenta')
-            draw.text((w+h//2, h//2), "Agent 2", font=fnt, fill='cyan')
+            draw.text((w,         0), "Agent 1", font=fnt, fill='magenta')
+            draw.text((w+h//2,    0), "Agent 2", font=fnt, fill='cyan')
+            draw.text((w,      h//2), "Region", font=fnt, fill='red')
+            draw.text((w+h//2, h//2), "Whole", font=fnt, fill='yellow')
             
             return img_all
         
