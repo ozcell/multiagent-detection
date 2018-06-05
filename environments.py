@@ -23,10 +23,11 @@ randint = np.random.randint
 fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
 
 class marlod(object):
-    def __init__(self, step_size=4, glimpse_size=(128,128), out_size=(224,224)):
+    def __init__(self, step_size=4, discrete=True, glimpse_size=(128,128), out_size=(224,224)):
         super(marlod, self).__init__()
 
         self.step_size = step_size 
+        self.discrete = discrete
         self.glimpse_size = glimpse_size    #(x, y)
         self.out_size = out_size            #(x, y)
         
@@ -38,8 +39,10 @@ class marlod(object):
         
         self.img, self.target = None, None
         self.locs = [[0,0], [0,0]]
-        self.IoU = 0.
-        self.rew = 0
+        self.IoU_region = 0.
+        self.IoU_agent_1 = 0.
+        self.IoU_agent_2 = 0.
+        self.rews = np.asarray([0.,0.])
 
         catIds = data.coco.getCatIds(catNms=['cat'])
         imgIds = data.coco.getImgIds(catIds=catIds )
@@ -60,19 +63,32 @@ class marlod(object):
 
         w, h = self.img.size
 
+        
+        # initial locations
         #x1, y1 = randint(w/4, 3*w/4), randint(h/4, 3*h/4)
         #x2, y2 = randint(w/4, 3*w/4), randint(h/4, 3*h/4)
 
-        x1, y1 = w/4, h/4
-        x2, y2 = 3*w/4, 3*h/4
-        
+        e = randint(4)
+        if e == 0:
+           x1, y1 = 0, 0
+           x2, y2 = w, h
+        elif e == 1:
+           x1, y1 = w, 0
+           x2, y2 = 0, h
+        elif e == 2:
+           x1, y1 = 0, h
+           x2, y2 = w, 0
+        elif e == 3:
+           x1, y1 = w, h
+           x2, y2 = 0, 0
+
         locs = [[x1, y1], [x2, y2]]
         obs = self.get_glimpses(locs)
-        rew = self.get_reward(locs)
+        rews = self.get_rewards(locs)
         
         self.locs = locs
         self.obs = obs
-        self.rew = rew
+        self.rews = rews
         
         return obs
     
@@ -109,25 +125,33 @@ class marlod(object):
         
         #[no action, right, left, down, up]
         for i, action in enumerate(actions):
-            if np.argmax(action) == 0: locs[i] = locs[i]            
-            #if np.argmax(action) == 1: locs[i][0] = min(locs[i][0] + self.step_size, self.img.size[0])
-            #if np.argmax(action) == 2: locs[i][0] = max(locs[i][0] - self.step_size, 0)
-            #if np.argmax(action) == 3: locs[i][1] = min(locs[i][1] + self.step_size, self.img.size[1])
-            #if np.argmax(action) == 4: locs[i][1] = max(locs[i][1] - self.step_size, 0)
-            if np.argmax(action) == 1: locs[i][0] = locs[i][0] + self.step_size
-            if np.argmax(action) == 2: locs[i][0] = locs[i][0] - self.step_size
-            if np.argmax(action) == 3: locs[i][1] = locs[i][1] + self.step_size
-            if np.argmax(action) == 4: locs[i][1] = locs[i][1] - self.step_size
+            if self.discrete:
+                if np.argmax(action) == 0: locs[i] = locs[i]
+
+                #to limit the agents inside the images      
+                #if np.argmax(action) == 1: locs[i][0] = min(locs[i][0] + self.step_size, self.img.size[0])
+                #if np.argmax(action) == 2: locs[i][0] = max(locs[i][0] - self.step_size, 0)
+                #if np.argmax(action) == 3: locs[i][1] = min(locs[i][1] + self.step_size, self.img.size[1])
+                #if np.argmax(action) == 4: locs[i][1] = max(locs[i][1] - self.step_size, 0)
+                
+                #free agents, they can go outside the image     
+                if np.argmax(action) == 1: locs[i][0] = locs[i][0] + self.step_size
+                if np.argmax(action) == 2: locs[i][0] = locs[i][0] - self.step_size
+                if np.argmax(action) == 3: locs[i][1] = locs[i][1] + self.step_size
+                if np.argmax(action) == 4: locs[i][1] = locs[i][1] - self.step_size
+            else:
+                #print('agent_' + str(i) + ': ' + str(action))
+                locs[i] = list(np.asarray(locs[i]) + np.asarray(action) * self.step_size)
         
         obs = self.get_glimpses(locs)
-        rew, done = self.get_reward(locs)
+        rews, done = self.get_rewards(locs)
         
         self.locs = locs
         self.obs = obs
-        self.rew = rew
+        self.rews = rews
         self.done = done
         
-        return obs, rew, done
+        return obs, rews, done
         
     def render(self, with_glimpses=True):
 
@@ -155,8 +179,8 @@ class marlod(object):
         draw.ellipse(agent_1, fill='magenta')
         draw.ellipse(agent_2, fill='cyan')
         
-        draw.text((5, 10), "IoU = " + str(self.IoU.item()), font=fnt, fill='black')
-        draw.text((5, 30), "Reward = " + str(self.rew), font=fnt, fill='black')
+        draw.text((5, 10), "IoU_region = " + str(self.IoU_region.item()), font=fnt, fill='black')
+        draw.text((5, 30), "Rewards = " + str(self.rews), font=fnt, fill='black')
         
         if with_glimpses:
             img_glimpses = Image.new('RGB', (self.out_size[0]*2, self.out_size[1]*2))
@@ -185,24 +209,51 @@ class marlod(object):
             
             return img
     
-    def get_reward(self, locs):
+    def get_rewards(self, locs):
         
-        bbox_t = K.Tensor(relative_to_point(self.target.reshape(1,4), 'numpy'))
+        
+        bbox_t = K.Tensor(relative_to_point(self.target.reshape(1,-1), 'numpy'))
         bbox_p = K.Tensor(np.sort(np.asarray(locs),axis=0).reshape(1,-1))
+
         
-        IoU = jaccard(bbox_t, bbox_p)
+        r0 = self.glimpse_size[0]//2
+        r1 = self.glimpse_size[1]//2
+        glimpse_1 = K.Tensor([self.locs[0][0]-r0,self.locs[0][1]-r1, self.locs[0][0]+r0, self.locs[0][1]+r1]).view(1,-1)
+        glimpse_2 = K.Tensor([self.locs[1][0]-r0,self.locs[1][1]-r1, self.locs[1][0]+r0, self.locs[1][1]+r1]).view(1,-1)
         
-        reward = 0
-        if self.IoU < IoU:
-            reward += 1
+        IoU_region = jaccard(bbox_t, bbox_p)
+        IoU_agent_1 = jaccard(bbox_t, glimpse_1)
+        IoU_agent_2 = jaccard(bbox_t, glimpse_2)
+
+        print('region: ' + str(IoU_region.item()))
+        print('agent_1: ' + str(IoU_agent_1.item()))
+        print('agent_2: ' + str(IoU_agent_2.item()))
+
+        rewards = np.asarray([0.,0.])
+        if self.IoU_region < IoU_region:
+            rewards += [1.,1.]
         else:
-            reward -= 1
+            rewards -= [1.,1.]
+
+        #if self.IoU_agent_1 < IoU_agent_1:
+        #    rewards += [.5,0.]
+        #else:
+        #    rewards -= [.5,0.]
+
+        #if self.IoU_agent_2 < IoU_agent_2:
+        #    rewards += [0.,.5]
+        #else:
+        #    rewards -= [0.,.5]                
         
-        if IoU < 0.5:
+        if IoU_region < 0.5:
             done = 0
         else:
             done = 1
+
+        #rewards = [IoU_region+IoU_agent_1, IoU_region+IoU_agent_2]
         
-        self.IoU = IoU
+        self.IoU_region = IoU_region
+        self.IoU_agent_1 = IoU_agent_1
+        self.IoU_agent_2 = IoU_agent_2
         
-        return reward, done
+        return rewards, done

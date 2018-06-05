@@ -1,5 +1,6 @@
 import torch as K
 import torch.nn as nn
+import torch.nn.functional as F
 
 from torchvision import models
 
@@ -57,9 +58,9 @@ class Actor(nn.Module):
         
         x = K.cat([glimpse, region, whole], 1)
         if self.discrete:
-            x = self.FC(x)
+            x = F.softmax(self.FC(x), dim=1)
         else:
-            x = self.FC(x)
+            x = F.tanh(self.FC(x))
         return x
 
 

@@ -28,7 +28,7 @@ class MADDPG(object):
         self.loss_func = loss_func
         self.gamma = gamma
         self.tau = tau
-        self.discrete = 2
+        self.discrete = discrete
         self.regularization = regularization
         self.dtype = dtype
         self.device = device
@@ -95,7 +95,7 @@ class MADDPG(object):
 
         V[mask] = self.critics_target[i_agent](s_, a_, self.FNet).detach()
 
-        loss_critic = self.loss_func(Q, (V * self.gamma) + r.squeeze(0)) 
+        loss_critic = self.loss_func(Q, (V * self.gamma) + r[i_agent,].squeeze(0)) 
 
         self.critics_optim[i_agent].zero_grad()
         loss_critic.backward()
