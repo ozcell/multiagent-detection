@@ -9,7 +9,7 @@ class Critic(nn.Module):
     def __init__(self, action_space):
         super(Critic, self).__init__()
         
-        input_size = 4096*4 + action_space*2
+        input_size = 25088 + action_space*2#4096 + action_space*2
         hidden_size = 1024
         output_size = 1
         
@@ -23,12 +23,13 @@ class Critic(nn.Module):
         glimpse_1, glimpse_2, region, whole = s
         action_1, action_2 = a
 
-        glimpse_1 = FNet(glimpse_1)
-        glimpse_2 = FNet(glimpse_2)
+        #glimpse_1 = FNet(glimpse_1)
+        #glimpse_2 = FNet(glimpse_2)
         region = FNet(region)
-        whole = FNet(whole)
+        #whole = FNet(whole)
         
-        x = K.cat([glimpse_1, glimpse_2, region, whole, action_1, action_2], 1)        
+        #x = K.cat([glimpse_1, glimpse_2, region, whole, action_1, action_2], 1)
+        x = K.cat([region, action_1, action_2], 1)        
         x = self.FC(x)
         return x
     
@@ -38,7 +39,7 @@ class Actor(nn.Module):
     def __init__(self, action_space, discrete=True):
         super(Actor, self).__init__()
         
-        input_size = 4096*3
+        input_size = 25088#4096
         hidden_size = 1024
         output_size = action_space
 
@@ -52,17 +53,31 @@ class Actor(nn.Module):
         
         glimpse, region, whole = s 
 
-        glimpse = FNet(glimpse)
+        #glimpse = FNet(glimpse)
         region = FNet(region)
-        whole = FNet(whole)
+        #whole = FNet(whole)
         
-        x = K.cat([glimpse, region, whole], 1)
+        #x = K.cat([glimpse, region, whole], 1)
+        x = region
         if self.discrete:
-            x = F.softmax(self.FC(x), dim=1)
+            x = F.softmax(self.FC(x), dim=1)*5
         else:
             x = F.tanh(self.FC(x))
         return x
 
+    def get_preactivations(self, s, FNet):
+        
+        glimpse, region, whole = s 
+
+        #glimpse = FNet(glimpse)
+        region = FNet(region)
+        #whole = FNet(whole)
+        
+        #x = K.cat([glimpse, region, whole], 1)
+        x = region
+        x = self.FC(x)
+   
+        return x
 
 class Features(nn.Module):
     def __init__(self):
@@ -74,6 +89,6 @@ class Features(nn.Module):
     def forward(self, x):
 
         x = self.VGG16(x).view(-1, 25088)
-        x = self.FC(x)
+        #x = self.FC(x)
 
         return x

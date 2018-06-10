@@ -17,4 +17,4 @@ for i in range(20):
 
 imageio.mimsave('render0.gif', render_imgs) 
 
-print('fuck') 
+#print('fuck') 

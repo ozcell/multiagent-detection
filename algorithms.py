@@ -47,7 +47,7 @@ class MADDPG(object):
         for i in range(num_agents):
             self.actors.append(Actor(action_space, discrete).to(device))
             self.actors_target.append(Actor(action_space, discrete).to(device))
-            self.actors_optim.append(optimizer(self.actors[i].FC.parameters(), lr = actor_lr))
+            self.actors_optim.append(optimizer(self.actors[i].parameters(), lr = actor_lr))
             
         for i in range(num_agents):
             hard_update(self.actors_target[i], self.actors[i])
@@ -60,7 +60,7 @@ class MADDPG(object):
         for i in range(num_agents):
             self.critics.append(Critic(action_space).to(device))
             self.critics_target.append(Critic(action_space).to(device))
-            self.critics_optim.append(optimizer(self.critics[i].FC.parameters(), lr = critic_lr))
+            self.critics_optim.append(optimizer(self.critics[i].parameters(), lr = critic_lr))
                 
         for i in range(num_agents):
             hard_update(self.critics_target[i], self.critics[i])         
@@ -107,7 +107,7 @@ class MADDPG(object):
 
         loss_actor = -self.critics[i_agent](s, a, self.FNet).mean()
         if self.regularization:
-            loss_actor += (self.actors[i_agent](s[[i_agent,2,3],])**2, self.FNet).mean()*1e-3
+            loss_actor += (self.actors[i_agent].get_preactivations(s[[i_agent,2,3],], self.FNet)**2).mean()*1e-3
 
         self.actors_optim[i_agent].zero_grad()        
         loss_actor.backward()

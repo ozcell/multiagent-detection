@@ -20,7 +20,8 @@ rev_trans = T.Compose([rev_norm, T.ToPILImage()])
 target_trans = lambda target: np.asarray(target[0].get('bbox'))
 
 randint = np.random.randint
-fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
+fnt = ImageFont.load_default()
+#fnt = ImageFont.truetype('Pillow/Tests/fonts/FreeMono.ttf', 20)
 
 class marlod(object):
     def __init__(self, step_size=4, discrete=True, glimpse_size=(128,128), out_size=(224,224)):
@@ -70,17 +71,22 @@ class marlod(object):
 
         e = randint(4)
         if e == 0:
-           x1, y1 = 0, 0
-           x2, y2 = w, h
+           x1, y1 = 0+self.glimpse_size[0]/2, 0+self.glimpse_size[1]/2
+           x2, y2 = w-self.glimpse_size[0]/2, h-self.glimpse_size[1]/2
         elif e == 1:
-           x1, y1 = w, 0
-           x2, y2 = 0, h
+           x1, y1 = w-self.glimpse_size[0]/2, 0+self.glimpse_size[1]/2
+           x2, y2 = 0+self.glimpse_size[0]/2, h-self.glimpse_size[1]/2
         elif e == 2:
-           x1, y1 = 0, h
-           x2, y2 = w, 0
+           x1, y1 = 0+self.glimpse_size[0]/2, h-self.glimpse_size[1]/2
+           x2, y2 = w-self.glimpse_size[0]/2, 0+self.glimpse_size[1]/2
         elif e == 3:
-           x1, y1 = w, h
-           x2, y2 = 0, 0
+           x1, y1 = w-self.glimpse_size[0]/2, h-self.glimpse_size[1]/2
+           x2, y2 = 0+self.glimpse_size[0]/2, 0+self.glimpse_size[1]/2
+
+        x1 += np.random.randint(2*self.glimpse_size[0])-self.glimpse_size[0]
+        y1 += np.random.randint(2*self.glimpse_size[1])-self.glimpse_size[1]
+        x2 += np.random.randint(2*self.glimpse_size[0])-self.glimpse_size[0]
+        y2 += np.random.randint(2*self.glimpse_size[1])-self.glimpse_size[1]
 
         locs = [[x1, y1], [x2, y2]]
         obs = self.get_glimpses(locs)
@@ -129,19 +135,21 @@ class marlod(object):
                 if np.argmax(action) == 0: locs[i] = locs[i]
 
                 #to limit the agents inside the images      
-                #if np.argmax(action) == 1: locs[i][0] = min(locs[i][0] + self.step_size, self.img.size[0])
-                #if np.argmax(action) == 2: locs[i][0] = max(locs[i][0] - self.step_size, 0)
-                #if np.argmax(action) == 3: locs[i][1] = min(locs[i][1] + self.step_size, self.img.size[1])
-                #if np.argmax(action) == 4: locs[i][1] = max(locs[i][1] - self.step_size, 0)
+                if np.argmax(action) == 1: locs[i][0] = min(locs[i][0] + self.step_size, self.img.size[0]-self.glimpse_size[0])
+                if np.argmax(action) == 2: locs[i][0] = max(locs[i][0] - self.step_size, 0+self.glimpse_size[0])
+                if np.argmax(action) == 3: locs[i][1] = min(locs[i][1] + self.step_size, self.img.size[1]-self.glimpse_size[1])
+                if np.argmax(action) == 4: locs[i][1] = max(locs[i][1] - self.step_size, 0+self.glimpse_size[1])
                 
                 #free agents, they can go outside the image     
-                if np.argmax(action) == 1: locs[i][0] = locs[i][0] + self.step_size
-                if np.argmax(action) == 2: locs[i][0] = locs[i][0] - self.step_size
-                if np.argmax(action) == 3: locs[i][1] = locs[i][1] + self.step_size
-                if np.argmax(action) == 4: locs[i][1] = locs[i][1] - self.step_size
+                #if np.argmax(action) == 1: locs[i][0] = locs[i][0] + self.step_size
+                #if np.argmax(action) == 2: locs[i][0] = locs[i][0] - self.step_size
+                #if np.argmax(action) == 3: locs[i][1] = locs[i][1] + self.step_size
+                #if np.argmax(action) == 4: locs[i][1] = locs[i][1] - self.step_size
             else:
                 #print('agent_' + str(i) + ': ' + str(action))
                 locs[i] = list(np.asarray(locs[i]) + np.asarray(action) * self.step_size)
+                locs[i][0] = np.clip(locs[i][0], 0+self.glimpse_size[0], self.img.size[0]-self.glimpse_size[0]) 
+                locs[i][1] = np.clip(locs[i][1], 0+self.glimpse_size[1], self.img.size[1]-self.glimpse_size[1]) 
         
         obs = self.get_glimpses(locs)
         rews, done = self.get_rewards(locs)
@@ -225,9 +233,9 @@ class marlod(object):
         IoU_agent_1 = jaccard(bbox_t, glimpse_1)
         IoU_agent_2 = jaccard(bbox_t, glimpse_2)
 
-        print('region: ' + str(IoU_region.item()))
-        print('agent_1: ' + str(IoU_agent_1.item()))
-        print('agent_2: ' + str(IoU_agent_2.item()))
+        #print('region: ' + str(IoU_region.item()))
+        #print('agent_1: ' + str(IoU_agent_1.item()))
+        #print('agent_2: ' + str(IoU_agent_2.item()))
 
         rewards = np.asarray([0.,0.])
         if self.IoU_region < IoU_region:
@@ -245,7 +253,7 @@ class marlod(object):
         #else:
         #    rewards -= [0.,.5]                
         
-        if IoU_region < 0.5:
+        if IoU_region < 0.75:
             done = 0
         else:
             done = 1

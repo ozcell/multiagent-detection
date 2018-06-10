@@ -9,7 +9,7 @@ def onehot_from_logits(logits):
     return argmax_acs
 
 def sample_gumbel(logits, eps=1e-20):
-    U = K.rand(logits.shape, dtype=logits.dtype, device=logits.device)
+    U = K.rand(logits.shape, dtype=logits.dtype, device=logits.device, requires_grad=False)
     return -K.log(-K.log(U + eps) + eps)
 
 def gumbel_softmax_sample(logits, exploration=False, temperature=1.0):
