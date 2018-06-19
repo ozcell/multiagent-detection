@@ -78,3 +78,54 @@ def jaccard(box_a, box_b):
     union = area_a + area_b - inter
     
     return inter / union # [A,B]
+
+def find_edges(dims):
+    xmin, ymin, xmax, ymax = relative_to_point(dims.reshape(1,-1), 'numpy').reshape(4,)
+    edge_1 = (xmin, ymin)
+    edge_2 = (xmin, ymax)
+    edge_3 = (xmax, ymin)
+    edge_4 = (xmax, ymax)
+    return np.asarray([edge_1, edge_2, edge_3, edge_4])
+
+def get_closest_edge_loc(loc, target):
+    edges = find_edges(target)
+    dist_sq = np.square(edges-loc).sum(axis=1) 
+    ind = np.argsort(dist_sq)
+    return edges[ind[0]]
+
+def optimal_action(locs, target, i_agent, step_size, discrete=True, dtype=K.float32, device="cuda"):
+    x_i, y_i = locs[i_agent]
+    x_f, y_f = get_closest_edge_loc(locs[i_agent], target)
+
+    action_list = []
+    if discrete:
+        #[no action, right, left, down, up]
+        no_action = K.tensor([1.,0.,0.,0.,0.], dtype=dtype, device=device).view(1,-1)
+        right = K.tensor([0.,1.,0.,0.,0.], dtype=dtype, device=device).view(1,-1)
+        left = K.tensor([0.,0.,1.,0.,0.], dtype=dtype, device=device).view(1,-1)
+        down = K.tensor([0.,0.,0.,1.,0.], dtype=dtype, device=device).view(1,-1)
+        up = K.tensor([0.,0.,0.,0.,1.], dtype=dtype, device=device).view(1,-1)
+    else:
+        #[right/left, down/up]
+        no_action = K.tensor([0.,0.], dtype=dtype, device=device).view(1,-1)
+        right = K.tensor([1.,0.], dtype=dtype, device=device).view(1,-1)
+        left = K.tensor([-1.,0.], dtype=dtype, device=device).view(1,-1)
+        down = K.tensor([0.,1.], dtype=dtype, device=device).view(1,-1)
+        up = K.tensor([0.,-1.], dtype=dtype, device=device).view(1,-1)
+
+    if x_f > (x_i + step_size):
+        action_list.append(right)
+    elif x_i > (x_f + step_size):
+        action_list.append(left)
+
+    if y_f > (y_i + step_size):
+        action_list.append(down)
+    elif y_i > (y_f + step_size):
+        action_list.append(up)
+
+    if len(action_list) == 0:
+        action = no_action
+    else:
+        action = action_list[np.random.randint(len(action_list))]
+
+    return action
